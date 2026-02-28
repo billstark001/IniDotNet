@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using IniDotNet.Base;
+using IniDotNet.Integrated;
 using IniDotNet.Linq;
 
 namespace IniDotNet
@@ -56,6 +57,30 @@ namespace IniDotNet
             Parse(textReader, iniData);
 
             return iniData.Get();
+        }
+
+        /// <summary>
+        ///     Parses an INI string directly into a typed model object.
+        /// </summary>
+        /// <typeparam name="T">The model type to deserialize into.</typeparam>
+        /// <param name="iniString">String with data in INI format.</param>
+        /// <returns>A <typeparamref name="T"/> instance populated from the INI data.</returns>
+        public T? ParseAs<T>(string iniString)
+        {
+            return ParseAs<T>(new StringReader(iniString));
+        }
+
+        /// <summary>
+        ///     Parses INI data from a <see cref="TextReader"/> directly into a typed model object.
+        /// </summary>
+        /// <typeparam name="T">The model type to deserialize into.</typeparam>
+        /// <param name="textReader">Text reader for the source INI data.</param>
+        /// <returns>A <typeparamref name="T"/> instance populated from the INI data.</returns>
+        public T? ParseAs<T>(TextReader textReader)
+        {
+            var handler = new IntegratedIniHandler<T>();
+            Parse(textReader, handler);
+            return handler.Data;
         }
 
     }

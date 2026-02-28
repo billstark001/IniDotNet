@@ -137,6 +137,7 @@ namespace IniDotNet.Linq
             Global.Clear();
             Sections.Clear();
         }
+
         /// <summary>
         ///     Deletes all comments in all sections and properties values
         /// </summary>
@@ -180,6 +181,16 @@ namespace IniDotNet.Linq
         }
 
         #endregion
+
+        /// <summary>
+        ///     Returns the INI-formatted string representation of this data,
+        ///     using default formatting settings.
+        /// </summary>
+        public override string ToString()
+        {
+            var formatter = new IniObjectFormatter();
+            return formatter.Format(this, new Base.IniFormatterConfig());
+        }
 
         #region Fields
         /// <summary>

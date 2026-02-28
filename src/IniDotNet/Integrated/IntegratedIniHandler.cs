@@ -153,3 +153,22 @@ public class IntegratedIniHandler : IIniHandler
         GetCurrentHandler().PutObject(section, handler.End());
     }
 }
+
+/// <summary>
+/// A strongly-typed wrapper around <see cref="IntegratedIniHandler"/> that returns
+/// a <typeparamref name="T"/> instance directly after parsing.
+/// </summary>
+/// <typeparam name="T">The model type decorated with <see cref="IniModelAttribute"/>.</typeparam>
+public class IntegratedIniHandler<T> : IntegratedIniHandler, IIniHandler<T>
+{
+    /// <summary>Creates a handler that deserializes the whole INI file into <typeparamref name="T"/>.</summary>
+    /// <param name="basePath">Optional path prefix for nested section routing.</param>
+    /// <param name="allowGlobal">Whether to allow key/value pairs outside any section.</param>
+    public IntegratedIniHandler(string[]? basePath = null, bool allowGlobal = false)
+        : base(typeof(T), basePath, allowGlobal) { }
+
+    /// <summary>Returns the deserialized <typeparamref name="T"/> instance after parsing.</summary>
+    public new T? Data => base.Data is T t ? t : default;
+
+    T IIniHandler<T>.Get() => Data ?? throw new InvalidOperationException("Parsing did not produce a result; parsing may not have completed or the input was invalid.");
+}

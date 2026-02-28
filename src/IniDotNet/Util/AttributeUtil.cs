@@ -61,9 +61,9 @@ public static class AttributeUtil
 
                 // write record
                 if (isSection)
-                    ansSection[aName] = prop;
+                    ansSection[fieldName] = prop;
                 else
-                    ansKey[aName] = prop;
+                    ansKey[fieldName] = prop;
             }
 
             if (!processFlag)
