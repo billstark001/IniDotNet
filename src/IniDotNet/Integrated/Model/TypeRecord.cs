@@ -104,7 +104,8 @@ public class TypeRecord
         return succ ? ret : null;
     }
 
-    public bool IsKeyProperty(string x) => _propsKey.ContainsKey(x);
+    public IReadOnlyDictionary<string, PropertyInfo> KeyProperties => _propsKey;
+    public IReadOnlyDictionary<string, PropertyInfo> SectionProperties => _propsSection;
     public bool IsSectionProperty(string x) => _propsSection.ContainsKey(x);
     public int GetConstructorPosition(string x) => _ctorParamPos.TryGetValue(x.ToLower(), out var ret) ? ret : -1;
 

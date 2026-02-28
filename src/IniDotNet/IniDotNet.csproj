@@ -31,8 +31,9 @@
 
 	<!-- Auto-select supported target frameworks based on MSBuild version -->
 	<PropertyGroup>
-		<TargetFrameworks>net6.0</TargetFrameworks>
+		<TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
 		<Nullable>enable</Nullable>
+		<LangVersion>10</LangVersion>
 		<RepositoryUrl>https://github.com/BillStark001/IniDotNet</RepositoryUrl>
 		<Copyright>Ricardo Amores Hernández 2009-2019; Bill Stark 2022-2022</Copyright>
 	</PropertyGroup>

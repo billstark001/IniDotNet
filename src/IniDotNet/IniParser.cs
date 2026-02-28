@@ -13,7 +13,7 @@ namespace IniDotNet
 	/// 	Responsible for parsing an string from an ini file, and creating
 	/// 	an <see cref="IniObject"/> structure.
 	/// </summary>
-    public class IniParser: IIniParser
+    public partial class IniParser: IIniParser
     {
         #region Initialization
         /// <summary>

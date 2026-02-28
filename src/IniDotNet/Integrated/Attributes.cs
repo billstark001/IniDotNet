@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using IniDotNet.Integrated.Serializer;
 
 namespace IniDotNet.Integrated;
@@ -57,12 +53,14 @@ public class IniSerializerAttribute : Attribute
 {
     public Type Type { get; set; }
 
-    private static readonly Type IniType = typeof(IIniSerializer<string>).GetGenericTypeDefinition();
+    private static readonly Type IniSerializerType = typeof(IIniSerializer<>);
 
     public IniSerializerAttribute(Type type)
     {
-        if (!IniType.IsAssignableFrom(type.GetGenericTypeDefinition()))
-            throw new InvalidDataException("Invalid type");
+        var implementsInterface = type.GetInterfaces()
+            .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == IniSerializerType);
+        if (!implementsInterface)
+            throw new ArgumentException($"Type {type.Name} must implement IIniSerializer<T>.", nameof(type));
         Type = type;
     }
 }

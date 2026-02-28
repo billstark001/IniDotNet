@@ -1,117 +1,206 @@
-# INI File Parser
+# IniDotNet
 
-A .NET, Mono and Unity3d compatible(*) library for reading/writing INI data from IO streams, file streams, and strings written in C#.
+A .NET library for reading and writing INI files, featuring both a flexible **Linq-style** object model and a **System.Text.Json–inspired** attribute-based serialization API.
 
-Also implements merging operations, both for complete ini files, sections, or even just a subset of the keys contained by the files.
+## Target Frameworks
 
-
-(*) This library is 100% .NET code and does not have any dependencies on Windows API calls in order to be portable.
-
-[![Build Status](https://travis-ci.org/rickyah/ini-parser.png?branch=master)](https://travis-ci.org/rickyah/ini-parser)
-
-
-Get the latest version: https://github.com/rickyah/ini-parser/releases/latest
-Install it with NuGet: https://www.nuget.org/packages/ini-parser/
-
-## Version 2.0
-Since the INI format isn't really a "standard", version 2 introduces a simpler way to customize INI parsing:
-
- * Pass a configuration object to an `IniParser`, specifying the behaviour of the parser. A default implementation is used if none is provided.
- 
- * Derive from `IniDataParser` and override the fine-grained parsing methods.
-
+- `net8.0` (LTS)
+- `netstandard2.1`
 
 ## Installation
 
-The library is published to [NuGet](https://www.nuget.org/packages/ini-parser/) and can be installed on the command-line from the directory containing your solution.
-
-```bat
-> nuget install ini-parser
-```
-
-Or, from the [Package Manager Console](http://docs.nuget.org/docs/start-here/using-the-package-manager-console) in Visual Studio
-
 ```powershell
-PM> Install-Package ini-parser
+dotnet add package ini-dotnet
 ```
 
-If you are using Visual Studio, you can download the [NuGet Package Manager](http://visualstudiogallery.msdn.microsoft.com/27077b70-9dad-4c64-adcf-c7cf6bc9970c) extension that will allow adding the NuGet dependency for your project.
+---
 
-If you use MonoDevelop / Xamarin Studio, you can install the [MonoDevelop NuGet AddIn](https://github.com/mrward/monodevelop-nuget-addin) to also be able to add this library as dependency from the IDE.
+## Quick Start
 
-## Getting Started
-
-All code examples expect the following using clauses:
+### Parse into a raw `IniObject`
 
 ```csharp
-using IniParser;
-using IniParser.Model;
+using IniDotNet;
+using IniDotNet.Linq;
+
+var parser = new IniDataParser();
+IniObject data = parser.Parse(File.ReadAllText("config.ini"));
+
+// Read
+string host = data["Server"]["host"];
+
+// Write
+data["Server"]["host"] = "newhost";
+
+// Format back to string
+Console.WriteLine(data);          // uses IniObject.ToString()
 ```
 
-INI data is stored in nested dictionaries, so accessing the value associated to a key in a section is straightforward. Load the data using one of the provided methods.
+---
+
+## Object-Model API
+
+Define a model class and decorate it with attributes, similar to `System.Text.Json`.
+
+### Attributes
+
+| Attribute | Target | Description |
+|---|---|---|
+| `[IniModel]` | class | Marks a class as a serializable INI section type. |
+| `[IniProperty("name")]` | property | Maps a property to a specific INI key or section name. Omit to use the property name. |
+| `[IniProperty("name", IniType.Section)]` | property | Forces a property to be treated as a section. |
+| `[IniProperty("name", IniType.Key)]` | property | Forces a property to be treated as a key. |
+| `[IniIgnore]` | property | Excludes a property from serialization/deserialization. |
+| `[IniSerializer(typeof(MySerializer))]` | property | Uses a custom `IIniSerializer<T>` for this property. |
+
+### Supported property types (built-in serializers)
+
+`string`, `bool`, `int`, `long`, `double`, `string[]`, `int[]`, `IEnumerable<string>`,
+`Dictionary<string, T>` (mapped as a section), `Hashtable` (mapped as a section).
+
+### Define a model
 
 ```csharp
-var parser = new FileIniDataParser();
-IniData data = parser.ReadFile("Configuration.ini");
+using IniDotNet.Integrated;
+
+[IniModel]
+public class ServerConfig
+{
+    [IniProperty("host")]
+    public string Host { get; set; } = "";
+
+    [IniProperty("port")]
+    public int Port { get; set; }
+
+    [IniProperty("enabled")]
+    public bool Enabled { get; set; }
+}
+
+public class AppConfig
+{
+    [IniProperty("version")]
+    public string Version { get; set; } = "";
+
+    // Recognized as a section because ServerConfig has [IniModel]
+    public ServerConfig Server { get; set; } = new();
+
+    // Dictionary<string,string> is always a section
+    public Dictionary<string, string> Users { get; set; } = new();
+}
 ```
 
-Retrieve the value for a key inside of a named section. Values are always retrieved as `string`s.
+### Deserialize
 
 ```csharp
-string useFullScreenStr = data["UI"]["fullscreen"];
-// useFullScreenStr contains "true"
-bool useFullScreen = bool.Parse(useFullScreenStr);
+// Static convenience method
+AppConfig cfg = IniParser.Deserialize<AppConfig>(iniString);
+
+// Or via IniDataParser
+var parser = new IniDataParser();
+AppConfig cfg = parser.ParseAs<AppConfig>(iniString);
+
+// Or via the handler directly (allows parser customization)
+var handler = new IntegratedIniHandler<AppConfig>();
+new IniParser().Parse(new StringReader(iniString), handler);
+AppConfig cfg = handler.Data!;
 ```
 
-Modify the value in the dictionary, not the value retrieved, and save to a new file or overwrite.
+### Serialize
 
 ```csharp
-data["UI"]["fullscreen"] = "true";
-parser.WriteFile("Configuration.ini", data);
+// Static convenience method → INI string
+string iniString = IniParser.Serialize(cfg);
+
+// Or produce an IniObject for further manipulation
+var serializer = new IntegratedIniSerializer<AppConfig>();
+IniObject iniData = serializer.Serialize(cfg);
+string iniString = iniData.ToString();
 ```
 
-Head to the [wiki](https://github.com/rickyah/ini-parser/wiki) for more usage examples, or [check out the code of the example project](https://github.com/rickyah/ini-parser/blob/development/src/IniFileParser.Example/Program.cs)
-
-
-## Merging ini files
-Merging ini files is a one-method operation:
+### Round-trip example
 
 ```csharp
+var ini = """
+[Server]
+host = localhost
+port = 8080
+enabled = true
 
-   var parser = new IniParser.Parser.IniDataParser();
+[Users]
+alice = pass1
+bob   = pass2
+""";
 
-   IniData config = parser.Parse(File.ReadAllText("global_config.ini"));
-   IniData user_config = parser.Parse(File.ReadAllText("user_config.ini"));
-   config.Merge(user_config);
+var cfg = IniParser.Deserialize<AppConfig>(ini);
 
-   // config now contains that data from both ini files, and the values of
-   // the keys and sections are overwritten with the values of the keys and
-   // sections that also existed in the user config file
+cfg.Server.Port = 9090;
+cfg.Users["carol"] = "pass3";
+
+string updated = IniParser.Serialize(cfg);
+Console.WriteLine(updated);
 ```
 
-Keep in mind that you can merge individual sections if you like:
+---
+
+## Custom serializer
+
+Implement `IIniSerializer<T>` for any type not supported out of the box:
 
 ```csharp
-config["user_settings"].Merge(user_config["user_settings"]);
+public class ColorSerializer : IIniSerializer<Color>
+{
+    public string Serialize(Color? value) => value?.ToHex() ?? "";
+    public Color? Deserialize(string? s) => s == null ? null : Color.FromHex(s);
+}
+
+public class ThemeConfig
+{
+    [IniSerializer(typeof(ColorSerializer))]
+    public Color Background { get; set; }
+}
 ```
 
-## Comments
+---
 
-The library allows modifying the comments from an ini file. 
-However note than writing the file back to disk, the comments will be rearranged so 
-comments are written before the element they refer to.
-
-To query, add or remove comments, access the property `Comments` available both in `SectionData` and `KeyData` models.
+## Parser configuration
 
 ```csharp
-var listOfCommentsForSection = config.["user_settings"].Comments;
-var listOfCommentsForKey = config["user_settings"].GetKeyData("resolution").Comments;
+var parser = new IniDataParser();
+
+parser.Configuration.AllowNumberSignComments = true;   // '#' as comment char
+parser.Configuration.CaseInsensitive         = true;   // case-insensitive keys
+parser.Configuration.AllowMultilineProperties = true;  // backslash line continuation
+parser.Configuration.UseEscapeCharacters     = true;   // \n \t \uXXXX in values
+
+parser.Scheme.AssignFrom(new IniScheme(parser.Configuration));
 ```
 
-## Unity3D
-You can easily use this library in your Unity3D projects. Just drop either the code or the DLL inside your project's Assets folder and you're ready to go!
+## Merging
 
-ini-parser is actually being used in [ProjectPrefs](http://u3d.as/content/garrafote/project-prefs/5so) a free add-on available in the Unity Assets Store that allows you to set custom preferences for your project. I'm not affiliated with this project: Kudos to Garrafote for making this add-on.
+```csharp
+IniObject defaults = parser.Parse(File.ReadAllText("defaults.ini"));
+IniObject user     = parser.Parse(File.ReadAllText("user.ini"));
+defaults.Merge(user);   // user values overwrite defaults
+```
 
-## Contributing
-Do you have an idea to improve this library, or did you happen to run into a bug? Please share your idea or the bug you found in the [issues page](https://github.com/rickyah/ini-parser/issues), or even better: feel free to fork and [contribute](https://github.com/rickyah/ini-parser/wiki/Contributing) to this project with a Pull Request.
+---
+
+## Project structure
+
+```
+src/
+  IniDotNet/
+    Base/           – interfaces and configuration types
+    Linq/           – IniObject / IniSection / IniProperty DOM
+    Integrated/     – attribute-based serialization/deserialization
+      Serializer/   – built-in IIniSerializer<T> implementations
+      Handler/      – section handlers used during parsing
+      Model/        – TypeRecord / SerializerRecord metadata
+    Util/           – reflection helpers
+  IniDotNet.Tests/  – NUnit test suite
+  IniDotNet.Example – console example
+```
+
+## License
+
+MIT
